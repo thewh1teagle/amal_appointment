@@ -1,30 +1,34 @@
 import requests
 import pathlib
+from dataclasses import dataclass
 import urllib3
 # we have to use verify=False I don't care about integrity
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+@dataclass
+class Location:
+    name: str
+    id: str
 
-locations = {
-    'om_alfaham': '9', 
-    'ofakim': '18', 
-    'eilat': '20', 
-    'ashdod': '15', 
-    'ashkelon': '30', 
-    'gat': '10', 
-    'dimona': '19', 
-    'haifa': '7', 
-    'tiberias': '5', 
-    'jerusalem_beit_hanina': '11', 
-    'jerusalem_new_city': '24', 
-    'karmiel': '3', 
-    'naharia': '1', 
-    'the_galilee': '28', 
-    'afula': '8', 
-    'kiryat_hayim': '6', 
-    'kiryat_shmona': '2'
-}
-
+locations = [
+    Location("om_alfaham", "9"),
+    Location("ofakim", "18"),
+    Location('eilat', '20'), 
+    Location('ashdod', '15'), 
+    Location('ashkelon', '30'), 
+    Location('gat', '10'), 
+    Location('dimona', '19'), 
+    Location('haifa', '7'), 
+    Location('tiberias', '5'), 
+    Location('jerusalem_beit_hanina', '11'), 
+    Location('jerusalem_new_city', '24'),  # nayot?
+    Location('karmiel', '3'), 
+    Location('naharia', '1'), 
+    Location('the_galilee', '28'), 
+    Location('afula', '8'), 
+    Location('kiryat_hayim', '6'), 
+    Location('kiryat_shmona', '2')
+]
 
 months = [
     '01',
@@ -66,7 +70,7 @@ class AmalApi:
         # https://stackoverflow.com/questions/66683038/ubuntu-server-16-04-error-60-ssl-certificate-problem
         response = self.s.get('https://www.amal-nehiga.org.il/amal_rishum/base/courses.php?type=1', verify=False)
 
-    def available_appointment(self, location, month) -> True:
+    def available_appointment(self, location: Location, month) -> True:
         self.s.headers = headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -86,7 +90,7 @@ class AmalApi:
         }
 
         data = {
-            'loc': location, # 24
+            'loc': location.id, # 24
             'activity': '1',
             'month': month,
             'time': '',
