@@ -8,11 +8,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class watchdog:
 
-    def __init__(self, branch, month, onAvailable) -> None:
+    def __init__(self, branch, month, on_available) -> None:
 
         self.branch = branch
         self.month = month
-        self.callback = onAvailable
+        self.callback = on_available
 
         schedule.every(1).hours.do(self.execute)
 
@@ -79,5 +79,6 @@ class watchdog:
 
         available = len(arrJson) if isinstance(
             arrJson, list) and len(arrJson) > 0 else 0
-        if (available > 0):
+
+        if (available):
             self.callback(available, self.branch)
