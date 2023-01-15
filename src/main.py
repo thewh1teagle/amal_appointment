@@ -1,30 +1,36 @@
-from AmalApi import AmalApi, locations, months
-from Push import Push
+from watchdog import watchdog
+from pushApi import pushApi
+
+import dotenv
 import schedule
 import time
-import settings
-import datetime
+import os
 
-api = AmalApi()
-push = Push()
 
-def job():
-    try:
-        print('Job run', datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-        for city in settings.CITIES:
-            appointmens = api.available_appointment(city, months[-1])
-            if appointmens > 0:
-                push.send(settings.TOPIC ,"New Appointment", f"Wow! There's new {appointmens} in {city.name} available!", "https://www.amal-nehiga.org.il/amal_rishum/base/courses.php?type=1")
-                print('Push...\nhanging for 30 minutes...')
-                time.sleep(60*30) # 30 minutes
-    except Exception as e:
-        print(f'We got error :( {e}')
-        push.send(settings.TOPIC, "Error", e, "")
+# this is a callback that gets called when there's an appointment available
+def on_available(cnt: int, cname: str):
+    push.send(
+        "AMAL_APPOINTMENT",
+        "New Appointment",
+        f"Wow! There's new {cnt} in {cname} available!",
+        "https://www.amal-nehiga.org.il/amal_rishum/base/courses.php?type=1"
+    )
 
-if __name__ == '__main__':  
+
+if __name__ == '__main__':
+    dotenv.load_dotenv()
+
+    branches = os.environ.get('branches').split(',')
+    months = os.environ.get('months').split(',')
+
+    watchdog = watchdog(branches, months, on_available)
+    push = pushApi()
+
     print('Starting')
-    job()
-    schedule.every(settings.SCHEDULE_INTEVAL).hours.do(job)
+
+    watchdog.initialize()
+    watchdog.execute()  # initial execution
+
     while True:
         schedule.run_pending()
         time.sleep(1)

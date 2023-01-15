@@ -1,59 +1,36 @@
 import requests
-import pathlib
-from dataclasses import dataclass
 import urllib3
+import schedule
+from array import array
+from typing import Callable
+
 # we have to use verify=False I don't care about integrity
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-@dataclass
-class Location:
-    name: str
-    id: str
 
-locations = [
-    Location("om_alfaham", "9"),
-    Location("ofakim", "18"),
-    Location('eilat', '20'), 
-    Location('ashdod', '15'), 
-    Location('ashkelon', '30'), 
-    Location('gat', '10'), 
-    Location('dimona', '19'), 
-    Location('haifa', '7'), 
-    Location('tiberias', '5'), 
-    Location('jerusalem_beit_hanina', '11'), 
-    Location('jerusalem_new_city', '24'),  # nayot?
-    Location('karmiel', '3'), 
-    Location('naharia', '1'), 
-    Location('the_galilee', '28'), 
-    Location('afula', '8'), 
-    Location('kiryat_hayim', '6'), 
-    Location('kiryat_shmona', '2')
-]
+class watchdog:
 
-months = [
-    '01',
-    '02',
-    '03',
-    '04',
-    '05',
-    '06',
-    '07',
-    '08',
-    '09',
-    '10',
-    '11',
-    '12',
-]
+    def __init__(self, branches: array, months: array, on_available: Callable) -> None:
 
-class AmalApi:
+        # data from outer class
+        self.branches = branches
+        self.months = months
+        self.callback = on_available
 
-    def __init__(self) -> None:
-        self.s = requests.session()
-        self.bypass_incapsula()
+        # internal use
+        self.branch_index = 0
+        self.branches_len = len(branches)
+        self.month_index = 0
+        self.months_len = len(months)
 
+        schedule.every(6).seconds.do(self.execute)
 
-    def bypass_incapsula(self):
-        self.s.headers = {
+        self.session = requests.session()
+
+    # call this once upon creation
+    def initialize(self):
+
+        self.session.headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
@@ -67,11 +44,15 @@ class AmalApi:
             # Requests doesn't support trailers
             # 'TE': 'trailers',
         }
-        # https://stackoverflow.com/questions/66683038/ubuntu-server-16-04-error-60-ssl-certificate-problem
-        response = self.s.get('https://www.amal-nehiga.org.il/amal_rishum/base/courses.php?type=1', verify=False)
 
-    def available_appointment(self, location: Location, month) -> True:
-        self.s.headers = headers = {
+        # https://stackoverflow.com/questions/66683038/ubuntu-server-16-04-error-60-ssl-certificate-problem
+        # https://stackoverflow.com/questions/15445981/how-do-i-disable-the-security-certificate-check-in-python-requests
+        self.session.get(
+            'https://www.amal-nehiga.org.il/amal_rishum/base/courses.php?type=1', verify=False)
+
+    def execute(self):
+
+        headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Language': 'en-US,en;q=0.5',
@@ -89,18 +70,52 @@ class AmalApi:
             # 'TE': 'trailers',
         }
 
-        data = {
-            'loc': location.id, # 24
+        branch = self.branches[self.branch_index]
+        month = self.months[self.month_index]
+
+        # print(f'month {month} branch {branch}')
+
+        payload = {
+            'loc': branch,
             'activity': '1',
             'month': month,
             'time': '',
         }
 
-        response = self.s.post(
+        response = self.session.post(
             'https://www.amal-nehiga.org.il/amal_rishum/base/get_all_courses.php',
             headers=headers,
-            data=data,
+            data=payload,
             verify=True
         )
-        data = response.json()
-        return len(data) if isinstance(data, list) and len(data) > 0 else 0
+
+        arr_json = response.json()
+
+        available = len(arr_json) if isinstance(
+            arr_json, list) and len(arr_json) > 0 else 0
+
+        # print(available)
+
+        if (available):
+            self.callback(available, self.branch)
+        #   return  # remove this if you want to iterate to next month/branch when a date is found
+
+        if (self.months_len > 1):
+
+            if (self.month_index == self.months_len - 1):
+                self.month_index = 0  # if we reached the max amount of months, we reset the index
+
+                # when we checked all months for current branch, we iterate to next branch
+                if (self.branches_len > 1):
+
+                    if (self.branch_index == self.branches_len - 1):
+                        # we reset back to the first branch
+                        self.branch_index = 0
+                        return
+
+                    self.branch_index += 1
+
+                return
+
+            # we iterate to next month in the array
+            self.month_index += 1
