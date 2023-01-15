@@ -1,6 +1,8 @@
 import requests
 import urllib3
 import schedule
+from array import array
+from typing import Callable
 
 # we have to use verify=False I don't care about integrity
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -8,13 +10,20 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class watchdog:
 
-    def __init__(self, branch, month, on_available) -> None:
+    def __init__(self, branches: array, months: array, on_available: Callable) -> None:
 
-        self.branch = branch
-        self.month = month
+        # data from outer class
+        self.branches = branches
+        self.months = months
         self.callback = on_available
 
-        schedule.every(1).hours.do(self.execute)
+        # internal use
+        self.branch_index = 0
+        self.branches_len = len(branches)
+        self.month_index = 0
+        self.months_len = len(months)
+
+        schedule.every(6).seconds.do(self.execute)
 
         self.session = requests.session()
 
@@ -61,10 +70,15 @@ class watchdog:
             # 'TE': 'trailers',
         }
 
+        branch = self.branches[self.branch_index]
+        month = self.months[self.month_index]
+
+        # print(f'month {month} branch {branch}')
+
         payload = {
-            'loc': self.branch,  # 24
+            'loc': branch,
             'activity': '1',
-            'month': self.month,  # 12
+            'month': month,
             'time': '',
         }
 
@@ -75,10 +89,33 @@ class watchdog:
             verify=True
         )
 
-        arrJson = response.json()
+        arr_json = response.json()
 
-        available = len(arrJson) if isinstance(
-            arrJson, list) and len(arrJson) > 0 else 0
+        available = len(arr_json) if isinstance(
+            arr_json, list) and len(arr_json) > 0 else 0
+
+        # print(available)
 
         if (available):
             self.callback(available, self.branch)
+        #   return  # remove this if you want to iterate to next month/branch when a date is found
+
+        if (self.months_len > 1):
+
+            if (self.month_index == self.months_len - 1):
+                self.month_index = 0  # if we reached the max amount of months, we reset the index
+
+                # when we checked all months for current branch, we iterate to next branch
+                if (self.branches_len > 1):
+
+                    if (self.branch_index == self.branches_len - 1):
+                        # we reset back to the first branch
+                        self.branch_index = 0
+                        return
+
+                    self.branch_index += 1
+
+                return
+
+            # we iterate to next month in the array
+            self.month_index += 1

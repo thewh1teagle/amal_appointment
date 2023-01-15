@@ -1,10 +1,11 @@
 import requests
 import json
+from typing import Callable
 
 
 class pushApi:
 
-    def send(self, topic: str, title, text, click_url):
+    def send(self, topic: str, title: str, text: str, click_url: Callable):
 
         formData = {
             "topic": topic,

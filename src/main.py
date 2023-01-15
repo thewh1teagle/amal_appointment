@@ -8,7 +8,7 @@ import os
 
 
 # this is a callback that gets called when there's an appointment available
-def on_available(cnt, cname):
+def on_available(cnt: int, cname: str):
     push.send(
         "AMAL_APPOINTMENT",
         "New Appointment",
@@ -20,10 +20,10 @@ def on_available(cnt, cname):
 if __name__ == '__main__':
     dotenv.load_dotenv()
 
-    branch = os.environ.get('branch')
-    month = os.environ.get('month')
+    branches = os.environ.get('branches').split(',')
+    months = os.environ.get('months').split(',')
 
-    watchdog = watchdog(branch, month, on_available)
+    watchdog = watchdog(branches, months, on_available)
     push = pushApi()
 
     print('Starting')
